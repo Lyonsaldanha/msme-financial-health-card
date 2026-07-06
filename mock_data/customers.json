@@ -1,0 +1,56 @@
+[
+  {
+    "customer_id": "CUST_001",
+    "business_name": "Sapiente Retail Store",
+    "sector": "Retail",
+    "persona": "healthy_retail",
+    "gst_number": "13053856jxV557",
+    "pan": "IrwIB4512j",
+    "registration_date": "2024-11-24"
+  },
+  {
+    "customer_id": "CUST_002",
+    "business_name": "Expedita Services",
+    "sector": "Services",
+    "persona": "at_risk_services",
+    "gst_number": "11017662oyN745",
+    "pan": "sqYEH8400t",
+    "registration_date": "2023-05-07"
+  },
+  {
+    "customer_id": "CUST_003",
+    "business_name": "Ikshita Clinic",
+    "sector": "Healthcare Services",
+    "persona": "ntc_clinic",
+    "gst_number": "NOT_REGISTERED",
+    "pan": "oZZWq6413T",
+    "registration_date": "2021-12-11"
+  },
+  {
+    "customer_id": "CUST_004",
+    "business_name": "Distinctio Restaurant",
+    "sector": "Food & Beverage",
+    "persona": "mixed_signals_restaurant",
+    "gst_number": "29058229Dus770",
+    "pan": "TtDVO3573f",
+    "registration_date": "2023-09-09"
+  },
+  {
+    "customer_id": "CUST_005",
+    "business_name": "Atque Manufacturing",
+    "sector": "Manufacturing",
+    "persona": "manufacturing_small",
+    "gst_number": "13651150BKL966",
+    "pan": "iqSJT0559d",
+    "registration_date": "2024-09-08"
+  },
+  {
+    "customer_id": "CUST_006",
+    "business_name": "Expedita Traders",
+    "sector": "Wholesale Trade",
+    "persona": "wholesale_trader",
+    "gst_number": "33415611Xnp353",
+    "pan": "ZlQls8950y",
+    "registration_date": "2022-12-25"
+  }
+]

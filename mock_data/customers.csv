@@ -1,0 +1,7 @@
+customer_id,business_name,sector,persona,gst_number,pan,registration_date
+CUST_001,Sapiente Retail Store,Retail,healthy_retail,13053856jxV557,IrwIB4512j,2024-11-24
+CUST_002,Expedita Services,Services,at_risk_services,11017662oyN745,sqYEH8400t,2023-05-07
+CUST_003,Ikshita Clinic,Healthcare Services,ntc_clinic,NOT_REGISTERED,oZZWq6413T,2021-12-11
+CUST_004,Distinctio Restaurant,Food & Beverage,mixed_signals_restaurant,29058229Dus770,TtDVO3573f,2023-09-09
+CUST_005,Atque Manufacturing,Manufacturing,manufacturing_small,13651150BKL966,iqSJT0559d,2024-09-08
+CUST_006,Expedita Traders,Wholesale Trade,wholesale_trader,33415611Xnp353,ZlQls8950y,2022-12-25

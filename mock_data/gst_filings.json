@@ -1,0 +1,542 @@
+[
+  {
+    "customer_id": "CUST_001",
+    "month": 1,
+    "year": 2024,
+    "gstr_sales": 313357,
+    "tax_paid": 56404,
+    "filing_date": "2024-01-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 2,
+    "year": 2024,
+    "gstr_sales": 289649,
+    "tax_paid": 52136,
+    "filing_date": "2024-02-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 3,
+    "year": 2024,
+    "gstr_sales": 358346,
+    "tax_paid": 64502,
+    "filing_date": "2024-03-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 4,
+    "year": 2024,
+    "gstr_sales": 321706,
+    "tax_paid": 57907,
+    "filing_date": "2024-04-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 5,
+    "year": 2024,
+    "gstr_sales": 321661,
+    "tax_paid": 57899,
+    "filing_date": "2024-05-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 6,
+    "year": 2024,
+    "gstr_sales": 298294,
+    "tax_paid": 53692,
+    "filing_date": "2024-06-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 7,
+    "year": 2024,
+    "gstr_sales": 274680,
+    "tax_paid": 49442,
+    "filing_date": "2024-07-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 8,
+    "year": 2024,
+    "gstr_sales": 339960,
+    "tax_paid": 61192,
+    "filing_date": "2024-08-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 9,
+    "year": 2024,
+    "gstr_sales": 342399,
+    "tax_paid": 61631,
+    "filing_date": "2024-09-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 10,
+    "year": 2024,
+    "gstr_sales": 327194,
+    "tax_paid": 58894,
+    "filing_date": "2024-10-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 11,
+    "year": 2024,
+    "gstr_sales": 258114,
+    "tax_paid": 46460,
+    "filing_date": "2024-11-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_001",
+    "month": 12,
+    "year": 2024,
+    "gstr_sales": 318243,
+    "tax_paid": 57283,
+    "filing_date": "2024-12-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 1,
+    "year": 2024,
+    "gstr_sales": 172038,
+    "tax_paid": 30966,
+    "filing_date": "2024-01-25",
+    "is_delayed": true
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 2,
+    "year": 2024,
+    "gstr_sales": 125841,
+    "tax_paid": 22651,
+    "filing_date": "2024-02-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 3,
+    "year": 2024,
+    "gstr_sales": 171259,
+    "tax_paid": 30826,
+    "filing_date": "2024-04-03",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 4,
+    "year": 2024,
+    "gstr_sales": 148909,
+    "tax_paid": 26803,
+    "filing_date": "2024-04-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 5,
+    "year": 2024,
+    "gstr_sales": 149717,
+    "tax_paid": 26949,
+    "filing_date": "2024-05-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 6,
+    "year": 2024,
+    "gstr_sales": 139707,
+    "tax_paid": 25147,
+    "filing_date": "2024-06-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 7,
+    "year": 2024,
+    "gstr_sales": 153161,
+    "tax_paid": 27569,
+    "filing_date": "2024-07-26",
+    "is_delayed": true
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 8,
+    "year": 2024,
+    "gstr_sales": 150796,
+    "tax_paid": 27143,
+    "filing_date": "2024-08-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 9,
+    "year": 2024,
+    "gstr_sales": 124919,
+    "tax_paid": 22485,
+    "filing_date": "2024-09-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 10,
+    "year": 2024,
+    "gstr_sales": 163969,
+    "tax_paid": 29514,
+    "filing_date": "2024-11-01",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 11,
+    "year": 2024,
+    "gstr_sales": 135952,
+    "tax_paid": 24471,
+    "filing_date": "2024-11-29",
+    "is_delayed": true
+  },
+  {
+    "customer_id": "CUST_002",
+    "month": 12,
+    "year": 2024,
+    "gstr_sales": 169541,
+    "tax_paid": 30517,
+    "filing_date": "2024-12-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 1,
+    "year": 2024,
+    "gstr_sales": 416891,
+    "tax_paid": 75040,
+    "filing_date": "2024-01-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 2,
+    "year": 2024,
+    "gstr_sales": 356766,
+    "tax_paid": 64218,
+    "filing_date": "2024-02-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 3,
+    "year": 2024,
+    "gstr_sales": 381186,
+    "tax_paid": 68613,
+    "filing_date": "2024-03-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 4,
+    "year": 2024,
+    "gstr_sales": 434071,
+    "tax_paid": 78132,
+    "filing_date": "2024-04-27",
+    "is_delayed": true
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 5,
+    "year": 2024,
+    "gstr_sales": 290215,
+    "tax_paid": 52238,
+    "filing_date": "2024-05-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 6,
+    "year": 2024,
+    "gstr_sales": 381842,
+    "tax_paid": 68731,
+    "filing_date": "2024-06-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 7,
+    "year": 2024,
+    "gstr_sales": 366774,
+    "tax_paid": 66019,
+    "filing_date": "2024-07-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 8,
+    "year": 2024,
+    "gstr_sales": 404516,
+    "tax_paid": 72812,
+    "filing_date": "2024-09-02",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 9,
+    "year": 2024,
+    "gstr_sales": 401884,
+    "tax_paid": 72339,
+    "filing_date": "2024-09-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 10,
+    "year": 2024,
+    "gstr_sales": 388579,
+    "tax_paid": 69944,
+    "filing_date": "2024-10-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 11,
+    "year": 2024,
+    "gstr_sales": 388130,
+    "tax_paid": 69863,
+    "filing_date": "2024-11-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_004",
+    "month": 12,
+    "year": 2024,
+    "gstr_sales": 373569,
+    "tax_paid": 67242,
+    "filing_date": "2024-12-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 1,
+    "year": 2024,
+    "gstr_sales": 417787,
+    "tax_paid": 75201,
+    "filing_date": "2024-01-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 2,
+    "year": 2024,
+    "gstr_sales": 424718,
+    "tax_paid": 76449,
+    "filing_date": "2024-02-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 3,
+    "year": 2024,
+    "gstr_sales": 532983,
+    "tax_paid": 95937,
+    "filing_date": "2024-03-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 4,
+    "year": 2024,
+    "gstr_sales": 490691,
+    "tax_paid": 88324,
+    "filing_date": "2024-04-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 5,
+    "year": 2024,
+    "gstr_sales": 480038,
+    "tax_paid": 86406,
+    "filing_date": "2024-05-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 6,
+    "year": 2024,
+    "gstr_sales": 472039,
+    "tax_paid": 84967,
+    "filing_date": "2024-06-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 7,
+    "year": 2024,
+    "gstr_sales": 464638,
+    "tax_paid": 83635,
+    "filing_date": "2024-07-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 8,
+    "year": 2024,
+    "gstr_sales": 410512,
+    "tax_paid": 73892,
+    "filing_date": "2024-08-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 9,
+    "year": 2024,
+    "gstr_sales": 513472,
+    "tax_paid": 92425,
+    "filing_date": "2024-09-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 10,
+    "year": 2024,
+    "gstr_sales": 444710,
+    "tax_paid": 80047,
+    "filing_date": "2024-10-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 11,
+    "year": 2024,
+    "gstr_sales": 545985,
+    "tax_paid": 98277,
+    "filing_date": "2024-11-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_005",
+    "month": 12,
+    "year": 2024,
+    "gstr_sales": 497494,
+    "tax_paid": 89548,
+    "filing_date": "2024-12-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 1,
+    "year": 2024,
+    "gstr_sales": 300407,
+    "tax_paid": 54073,
+    "filing_date": "2024-01-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 2,
+    "year": 2024,
+    "gstr_sales": 345712,
+    "tax_paid": 62228,
+    "filing_date": "2024-02-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 3,
+    "year": 2024,
+    "gstr_sales": 289481,
+    "tax_paid": 52106,
+    "filing_date": "2024-03-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 4,
+    "year": 2024,
+    "gstr_sales": 306418,
+    "tax_paid": 55155,
+    "filing_date": "2024-04-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 5,
+    "year": 2024,
+    "gstr_sales": 259308,
+    "tax_paid": 46675,
+    "filing_date": "2024-05-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 6,
+    "year": 2024,
+    "gstr_sales": 344636,
+    "tax_paid": 62034,
+    "filing_date": "2024-06-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 7,
+    "year": 2024,
+    "gstr_sales": 309222,
+    "tax_paid": 55660,
+    "filing_date": "2024-07-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 8,
+    "year": 2024,
+    "gstr_sales": 316903,
+    "tax_paid": 57042,
+    "filing_date": "2024-08-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 9,
+    "year": 2024,
+    "gstr_sales": 312465,
+    "tax_paid": 56243,
+    "filing_date": "2024-09-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 10,
+    "year": 2024,
+    "gstr_sales": 296484,
+    "tax_paid": 53367,
+    "filing_date": "2024-10-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 11,
+    "year": 2024,
+    "gstr_sales": 317536,
+    "tax_paid": 57156,
+    "filing_date": "2024-11-20",
+    "is_delayed": false
+  },
+  {
+    "customer_id": "CUST_006",
+    "month": 12,
+    "year": 2024,
+    "gstr_sales": 331012,
+    "tax_paid": 59582,
+    "filing_date": "2024-12-20",
+    "is_delayed": false
+  }
+]

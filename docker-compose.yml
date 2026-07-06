@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: msme_fhc_postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: msme_fhc_dev
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5433:5432"
+    volumes:
+      - msme_fhc_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d msme_fhc_dev"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  msme_fhc_pgdata:
