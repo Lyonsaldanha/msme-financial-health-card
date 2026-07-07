@@ -145,10 +145,20 @@ Requires `GEMINI_API_KEY` in `.env` (get one at
 key configured, or if Gemini errors/times out/exceeds quota, `generate_report`
 transparently falls back to a deterministic, non-LLM template narrative built
 from the same facts — `report["generation_method"]` tells you which path ran.
-If you see `429 RESOURCE_EXHAUSTED` with `limit: 0` in the logs, that's not a
-rate limit from overuse -- it means the Google Cloud project behind your key
-has zero free-tier quota provisioned (a billing/project setup issue, not a
-"too many requests" issue); see the success criteria checklist below.
+
+Default model is `gemini-flash-latest` (configurable via `GEMINI_MODEL`).
+During development, `gemini-2.0-flash` and `gemini-2.0-flash-lite` both
+returned `429 RESOURCE_EXHAUSTED` with `limit: 0` on the free-tier project
+used to build this — that's zero quota provisioned for those two specific
+model names, not a rate limit from overuse or an account-wide block: switching
+to `gemini-flash-latest` on the *same* key/project worked immediately. If you
+hit `limit: 0` on whatever model you configure, try `gemini-flash-latest` (or
+another current alias) before assuming your project needs a billing account
+linked. Note `gemini-flash-latest` is a "thinking" model that spends part of
+`max_output_tokens` on internal reasoning before emitting visible text —
+confirmed empirically (a 10-token budget produced zero visible characters, all
+spent on ~45 thinking tokens) — so `ai/client.py` sizes the budget generously
+(4096) rather than the smaller value you'd use for a non-thinking model.
 
 **Design deviations from a literal reading of the AI Engine spec** (each
 chosen for audit-safety, documented rather than silent):
@@ -222,11 +232,23 @@ confirmed with the user before building rather than assumed:
   scorecard as downloadable JSON instead — genuine, complete data rather
   than a button that does nothing useful if clicked.
 
-A real bug surfaced by actually running this in a browser rather than just
-reading the code: `db/queries.py::list_ai_reports()` originally selected
-`r.composite_score` from `ai_reports`, but that column only exists on
-`scorecards` — fixed by joining both tables. Caught immediately by the
-"View Reports" tab throwing a live `ProgrammingError`, not by inspection.
+**Real bugs surfaced by actually running this in a browser, not by reading the code:**
+
+1. `db/queries.py::list_ai_reports()` originally selected `r.composite_score`
+   from `ai_reports`, but that column only exists on `scorecards` — fixed by
+   joining both tables. Caught immediately by the "View Reports" tab
+   throwing a live `ProgrammingError`.
+2. `use_container_width` (used throughout `components/cards.py` and both
+   pages) is a deprecated Streamlit parameter past its removal date —
+   replaced with `width='stretch'` everywhere.
+3. The Reports page had no Logout button, stranding a logged-in user unable
+   to sign out from it. Fixed by extracting a shared
+   `components/auth.py::render_header()` used by both Dashboard and Reports.
+4. A test-automation issue, not an app bug: Streamlit's `text_input` commits
+   to session state on blur/Enter, not every keystroke. Automated
+   fill-then-immediately-click during manual browser testing raced ahead of
+   that commit, intermittently submitting a stale/empty value — real human
+   typing has enough natural delay that this never surfaces.
 
 ## Querying a customer's financial footprint
 
@@ -311,7 +333,7 @@ noted here for traceability:
 - [x] Reports stored in PostgreSQL (`ai_reports` table, JSONB)
 - [x] No hallucinated data — chart data is 100% code-built from the DB; narrative facts are 100% scorecard/DB-sourced
 - [x] Temperature set to 0.3 for factual mode; quota/timeout/invalid-output errors verified to degrade to a deterministic fallback rather than fail
-- [ ] Live Gemini generation confirmed successful — not yet verified. Every attempt (both `gemini-2.0-flash` and `gemini-2.0-flash-lite`) returned `429 RESOURCE_EXHAUSTED`. The actual quota error is `limit: 0` for `generate_content_free_tier_requests` — this is **not** a rate limit being hit from usage, it's zero quota provisioned for this Google Cloud project/key. That's a project/billing configuration issue on the Google Cloud/AI Studio side (see [ai/client.py](ai/client.py)'s `_describe_quota_error`, which now distinguishes this from a genuine transient rate limit in the logs). Needs a billing account linked to the project (even to stay on free pricing) or a new key from an eligible project before a live call can succeed. The fallback path is fully verified in the meantime.
+- [x] Live Gemini generation confirmed successful — `gemini-2.0-flash` and `gemini-2.0-flash-lite` both returned `429 RESOURCE_EXHAUSTED` with `limit: 0` (zero free-tier quota provisioned for those two specific model names on this project — not an account-wide block, and not fixed by waiting or retrying). Switching to `gemini-flash-latest` on the *same* key worked immediately: confirmed `HTTP 200`, `generation_method: "gemini"`, persisted to `ai_reports`, and spot-checked for hallucination (every claim in the narrative traced to a real computed value — composite score, DSCR, GST turnover range, cross-validation ratios all matched the scorecard; conditional language and source citations used throughout as instructed).
 - [x] Login page works with hardcoded credentials (`admin` / `demo123`)
 - [x] Dashboard lets the user select a real customer and generate a health card
 - [x] Progress indicator reflects real pipeline stages (not simulated delays)

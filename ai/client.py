@@ -21,9 +21,13 @@ from ai.schemas import NarrativeReport
 
 logger = logging.getLogger(__name__)
 
-DEFAULT_MODEL = "gemini-2.0-flash-lite"
+DEFAULT_MODEL = "gemini-flash-latest"
 TEMPERATURE = 0.3  # low temperature = factual mode, per spec
-MAX_OUTPUT_TOKENS = 2000
+# gemini-flash-latest is a "thinking" model that spends part of this budget on
+# internal reasoning tokens before emitting visible output (confirmed empirically:
+# a 10-token budget produced 0 visible chars, all spent on ~45 thinking tokens) --
+# sized generously so structured JSON generation doesn't get truncated by that.
+MAX_OUTPUT_TOKENS = 4096
 MAX_ATTEMPTS = 2
 
 

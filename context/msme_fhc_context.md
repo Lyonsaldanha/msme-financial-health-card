@@ -162,7 +162,19 @@ PDF report (narrative + charts, fully traceable)
 - `scorecards` — composite score + flags per customer
 - `audit_log` — data lineage (source → transformation → output)
 
+> This is the original pre-implementation sketch. The actual schema is more
+> granular (separate `gst_filings`/`upi_transactions`/`bank_statements`/
+> `epfo_payroll` tables rather than one generic `ratios` table, plus
+> `validation_errors` and `ai_reports`) — see
+> [../context/etl_analytics_implementation_report.md](etl_analytics_implementation_report.md)
+> §2 for the real schema and why it differs.
+
 ---
 
 ## Current Status
-Architecture fully designed. Ready to begin implementation starting with ETL schema design.
+All 3 layers plus the Streamlit frontend are implemented and verified
+end-to-end against real infrastructure (PostgreSQL, Gemini) — see
+[../context/etl_analytics_implementation_report.md](etl_analytics_implementation_report.md)
+for the full implementation record, verification evidence, deviations from
+these original specs (each documented with rationale), and known
+limitations. See [../README.md](../README.md) for setup and usage.

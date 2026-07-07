@@ -1,24 +1,33 @@
-# ETL Engine & Analytics Engine — Implementation Report
+# MSME Financial Health Card — Implementation Report
 
-Status as of this document: Layers 1 and 2 of the 3-layer architecture
-(see [msme_fhc_context.md](msme_fhc_context.md)) are built, wired to a real
-PostgreSQL instance, and verified end-to-end — not just written and assumed
-correct. Layer 3 (AI Engine) is not started.
+Status as of this document: all 4 layers of the architecture (see
+[msme_fhc_context.md](msme_fhc_context.md) for the 3-layer engine
+architecture, plus the Streamlit frontend on top) are built, wired to real
+infrastructure (PostgreSQL, Gemini), and verified end-to-end — not just
+written and assumed correct. Every success criterion across all four build
+prompts (ETL, Analytics, AI, Frontend) is confirmed working, including a
+genuine live Gemini generation.
 
 ---
 
 ## 1. Scope
 
-Two deliverables, per the original build prompts:
+Four deliverables, per the original build prompts:
 
 1. **ETL Engine** — load synthetic MSME data (GST, UPI, AA, EPFO) from JSON
    into PostgreSQL with normalization, validation, and full audit lineage.
 2. **Analytics Engine** — compute financial ratios per data source, cross-source
    reconciliation, weighted dimension scores, a composite health score
    (0–100), and red/green risk flags per customer, stored as a JSON scorecard.
+3. **AI Engine** — generate an audit-safe narrative report and chart configs
+   per customer from the scorecard, using an LLM for prose only.
+4. **Streamlit Frontend** — login, customer selection, health card display,
+   and report history, bridging the AI Engine's output to a browser UI.
 
-No data transformation/scoring logic lives in the ETL layer, and no LLM/
-narrative generation is in scope here — that's Layer 3.
+No data transformation/scoring logic lives in the ETL layer; no analysis
+happens in the AI Engine or frontend — all of that is confined to the
+Analytics Engine, consistent with the architecture doc's "LLM is a
+templating engine, not an analyst" principle.
 
 ---
 
@@ -37,20 +46,24 @@ Defined in [db/schema.sql](../db/schema.sql), created idempotently via
 | `data_lineage` | One row per file-load attempt (audit trail) | — (append-only) |
 | `validation_errors` | One row per record-level validation failure/warning | — (append-only) |
 | `scorecards` | One row per customer per scorecard date, JSONB payload | `customer_id, scorecard_date` |
+| `ai_reports` | One row per customer per scorecard date, JSONB report + `generation_method` | `customer_id, scorecard_date` |
 
 Design decisions:
 
 - **All currency columns are `BIGINT` paise** (rupees × 100), not floating
   point rupees, to avoid rounding drift across repeated aggregation.
-- `validation_errors` and `scorecards` are additions beyond the six tables
-  named in the original ETL prompt. `validation_errors` was added because the
-  spec explicitly requires logging "validation failures with record ID +
-  error reason" — `data_lineage` alone (one row per *file*) can't carry that
-  granularity. `scorecards` is required by the Analytics Engine's own spec
-  ("Database Integration" section).
+- `validation_errors`, `scorecards`, and `ai_reports` are additions beyond
+  what the ETL prompt's six named tables covered. `validation_errors` exists
+  because the ETL spec explicitly requires logging "validation failures with
+  record ID + error reason" — `data_lineage` alone (one row per *file*) can't
+  carry that granularity. `scorecards` and `ai_reports` are each required by
+  their respective engine's own "Database Integration" spec section.
 - Every fact table has a foreign key to `customers(customer_id)` with
   `ON DELETE CASCADE`, and an index on `customer_id` for the per-customer
-  read pattern both engines use.
+  read pattern every engine and the frontend use.
+- `ai_reports.generation_method` (`'gemini'` or `'fallback'`) records which
+  path actually produced each report — an audit trail for the AI Engine
+  itself, not just for the underlying financial data.
 
 ---
 
@@ -90,14 +103,16 @@ run_etl(data_dir="mock_data") -> list[LoadResult]
 
 Re-running `run_etl()` against the same files upserts on each table's natural
 key rather than duplicating rows. Verified by running the full load twice in
-a row and confirming identical row counts (see §6).
+a row and confirming identical row counts (see §9).
 
 ### NTC customer handling
 
 `gst_filings` naturally has zero rows for CUST_003 (NTC clinic — no GST
 registration) since the source `gst_filings.json` contains no records for
 that customer. No special-casing was needed in the loader; the Analytics
-Engine's ratio functions handle the empty case explicitly (§4).
+Engine's ratio functions handle the empty case explicitly (§4), and the AI
+Engine and frontend both propagate that "no GST data" state through to the
+final display rather than masking it.
 
 ---
 
@@ -105,7 +120,7 @@ Engine's ratio functions handle the empty case explicitly (§4).
 
 Public API in [analytics_engine.py](../analytics_engine.py) (project root);
 internals in `analytics/` (`stats_utils.py` — pure math, `scoring.py` — pure
-scoring/flag rules, no DB access).
+scoring/flag rules plus narrative interpretation labels, no DB access).
 
 ```
 compute_gst_ratios(customer_id) -> dict
@@ -166,6 +181,12 @@ judgment call, it's documented inline in `scoring.py`:
   (spec jumps straight from a "normal" band to "highly volatile") using the
   same 100/70/40/0 stepping the spec uses everywhere else, for consistency.
 
+`scoring.py` also exposes `interpret_dscr`, `interpret_cv`, and
+`interpret_active_days` — text-label versions of the same threshold
+cutpoints used for numeric scoring, added specifically so the AI Engine's
+narrative (§5) never describes a ratio using different boundaries than the
+ones that actually produced its dimension score.
+
 ### Flags
 
 Red/green flags implement every rule listed in the spec's Red Flags/Green
@@ -175,10 +196,196 @@ cross-validation mismatch, cash withdrawal %, ADB-vs-60-days-expenses).
 
 ---
 
-## 5. Environment issues found and resolved
+## 5. AI Engine
 
-Both were caught by actually running the pipeline against live PostgreSQL in
-Docker rather than trusting the code in isolation.
+Public API in [ai_engine.py](../ai_engine.py) (project root); internals in
+`ai/` (`facts.py`, `prompts.py`, `charts.py`, `fallback.py`, `client.py`,
+`render.py`, `schemas.py`).
+
+```
+AIEngine.retrieve_facts(scorecard) -> dict
+AIEngine.augment_prompt(facts) -> str
+AIEngine.generate_report(scorecard) -> dict
+AIEngine.generate_all_reports(scorecards) -> list[dict]
+```
+
+### The LLM writes prose only, never data
+
+The single biggest design deviation from a literal reading of the spec, made
+deliberately and documented rather than silently: **chart configs — including
+every numeric value in them — are built deterministically in `ai/charts.py`,
+never generated by the LLM.** The gauge comes from `composite_score`, the bar
+chart from `dimension_scores`, the two line charts from raw monthly
+`gst_filings`/`upi_transactions`/`epfo_payroll` rows, the table from
+`cross_validation` — all plain SQL + Python, zero model involvement. Two
+reasons:
+
+1. Asking a model to faithfully reproduce a numeric array is the highest
+   hallucination-risk operation you could hand it.
+2. The scorecard itself doesn't carry raw monthly time series (only
+   aggregates like CAGR/CV), so a chart like the spec's own example ("GST
+   Monthly Revenue Trend" with 12 monthly data points) isn't derivable from
+   the stated "Scorecard JSON only" input, regardless of model behavior.
+
+Similarly, `customer_name`/`sector`/`gst_number` (needed by the prompt
+template) aren't present in the scorecard JSON; `ai_engine.py` reads them
+directly from the `customers` table via the scorecard's own `customer_id` —
+still real, unmodified data, never LLM-touched.
+
+### Structured output via Pydantic + current SDK
+
+Uses the current `google-genai` SDK, not the legacy `google.generativeai`
+package shown in the original prompt's sample code (Google is sunsetting the
+legacy package). `NarrativeReport` (`ai/schemas.py`) is a Pydantic model
+passed as `response_schema` with `response_mime_type="application/json"` —
+the SDK validates and parses the model's JSON into that Pydantic model
+itself (`response.parsed`), rather than this code hand-parsing
+`response.text` and hoping it's well-formed JSON.
+
+### Error handling: quota, timeout, invalid output
+
+Per the spec's explicit error-handling requirements, `ai/client.py::call_gemini()`
+degrades to `ai/fallback.py::build_fallback_narrative()` — a deterministic,
+non-LLM template built from the same facts, following the same
+source-citation convention the LLM is instructed to follow — on: a missing
+API key, `429`/`RESOURCE_EXHAUSTED`, schema-validation failure after one
+retry, or any other exception. It never raises for these cases;
+`generate_report()` always returns a usable report, with
+`report["generation_method"]` (`"gemini"` or `"fallback"`) recording which
+path actually ran, persisted alongside the report in `ai_reports` for audit
+purposes — not silently presenting a template as if it were LLM output.
+
+### Chart rendering (Matplotlib)
+
+`ai/render.py` renders `chart_configs` to static PNGs with Matplotlib — the
+"Tool call renders charts" step named in the architecture doc's Layer 3 flow.
+Actually rendering all 5 chart types (gauge/bar/2×line/table) for real,
+persisted reports surfaced a genuine bug: the ✅/⚠️ emoji used in the
+cross-validation table have no glyph in Matplotlib's default font (DejaVu
+Sans) and rendered as broken boxes. Fixed by sanitizing to ASCII (`[OK]`/`[!]`)
+only at Matplotlib render time — the underlying `chart_configs` JSON keeps
+the emoji unchanged, since a web/Streamlit frontend renders Unicode
+natively; only the static-image consumer needed the workaround.
+
+### The Gemini quota investigation
+
+Every early attempt to call Gemini for real (`gemini-2.0-flash`, then
+`gemini-2.0-flash-lite`) returned `429 Too Many Requests`. A raw diagnostic
+call (bypassing the SDK's exception-swallowing to read the full error body)
+revealed the actual message: `limit: 0` for
+`generate_content_free_tier_requests` — genuinely zero quota, not merely
+exhausted. This was initially documented as a project-wide billing
+configuration problem requiring the user to link a billing account. That
+conclusion was **wrong, and corrected**: switching to `gemini-flash-latest`
+on the identical API key succeeded immediately (`HTTP 200`), proving the
+zero-quota condition was specific to those two exact model names on this
+project, not an account-wide block. `ai/client.py::DEFAULT_MODEL` is now
+`gemini-flash-latest`.
+
+A second discovery in the same investigation: `gemini-flash-latest` is a
+"thinking" model that spends part of `max_output_tokens` on internal
+reasoning before emitting visible text — confirmed empirically (a 10-token
+budget produced zero visible characters, all consumed by ~45 thinking
+tokens, per `response.usage_metadata.thoughts_token_count`).
+`MAX_OUTPUT_TOKENS` raised from 2000 to 4096 accordingly.
+
+A separate, self-inflicted issue during testing (not a code defect, but
+worth recording): while trying to verify the fallback path *without* hitting
+the live API, `env -u GEMINI_API_KEY` was used to strip the key from the
+shell before invoking Python. `db/config.py`'s `load_dotenv()` (default
+`override=False`) only skips a variable if it's *already set* — since it had
+been removed from the environment, dotenv read it straight back from `.env`.
+Six unintended live calls went out during what was meant to be an
+offline-only test run. All six correctly hit `429` and degraded to the
+fallback (so no incorrect output resulted), but real API attempts were spent
+needlessly against a rate-limited key — a reminder that shell-level env
+manipulation doesn't reliably prevent a `dotenv`-based module from loading a
+secret from a `.env` file.
+
+Once resolved, the live narrative was spot-checked against the source
+scorecard, not just accepted on a `200` response: composite score, DSCR, GST
+turnover range, and cross-validation ratios in the generated prose all
+traced to real computed values, with source citations and conditional
+language ("indicates", "shows") used throughout as instructed.
+
+---
+
+## 6. Streamlit Frontend
+
+Entry point [app.py](../app.py); pages in `pages/` (`1_Login.py`,
+`2_Dashboard.py`, `3_Reports.py`); shared UI in `components/` (`auth.py`,
+`forms.py`, `charts.py`, `cards.py`).
+
+### Two design decisions confirmed with the user before building
+
+1. **Customer selection, not a "new customer" intake form.** The spec's form
+   lets a user type in a brand-new business (name, GST, UPI ID, EPFO ID, bank
+   ref) and generate a card for it — its own sample code works around the
+   lack of real data by hardcoding a static fake scorecard for whatever name
+   is typed in. This POC has no live GST/UPI/AA/EPFO data connectors; only
+   customers the ETL Engine already loaded have real financial history, so
+   `components/forms.py::customer_selector()` presents a dropdown of real
+   customers instead. "Generate Health Card" always produces genuine,
+   traceable output — never a fabricated number for an arbitrary typed-in
+   name.
+2. **In-process function calls, not a separate backend HTTP API.** The spec
+   describes a `POST /api/generate_health_card` endpoint served by its own
+   process. `analytics_engine.py`/`ai_engine.py` are already plain Python
+   modules that talk to Postgres directly, so `pages/2_Dashboard.py` imports
+   and calls them (`run_analytics(...)`, `AIEngine().generate_report(...)`)
+   rather than standing up a redundant HTTP layer for a single-process demo.
+
+### Other deviations, documented rather than silent
+
+- Progress indicators (`st.status(...)`) reflect real pipeline stages
+  completing, not `time.sleep()`-simulated delays.
+- Charts are Plotly (`components/charts.py`), driven by the AI Engine's real
+  `chart_configs` — the same JSON schema `ai/render.py` renders to static
+  PNGs, one data contract with two renderers for two consumption contexts
+  (on-screen interactivity vs. static image export).
+- Downloads are real JSON (full report + scorecard), not the spec's
+  placeholder `data="PDF content here"` — real PDF generation wasn't
+  requested by any engine spec in this project, so a button that would do
+  nothing useful if clicked was replaced with genuine, complete data.
+
+### Bugs found by actually running it in a browser, not by reading the code
+
+1. `db/queries.py::list_ai_reports()` selected `r.composite_score` from
+   `ai_reports`, but that column only exists on `scorecards` — the "View
+   Reports" tab threw a live `sqlalchemy.exc.ProgrammingError` the first time
+   it was clicked. Fixed by joining both tables.
+2. `use_container_width` (used throughout `components/cards.py`,
+   `pages/2_Dashboard.py`, `pages/3_Reports.py`) is a deprecated Streamlit
+   parameter past its announced removal date — replaced with `width='stretch'`
+   at every call site.
+3. The Reports page had no Logout button, which would strand a logged-in
+   user unable to sign out from that page. Fixed by extracting a shared
+   `components/auth.py::render_header()` used by both Dashboard and Reports,
+   so a header/logout mismatch can't silently reappear on a future page.
+4. A test-automation issue, not an app defect: Streamlit's `text_input`
+   commits its value to server-side session state on blur/Enter, not on
+   every keystroke. Automated fill-then-immediately-click sequences during
+   manual browser testing raced ahead of that commit, intermittently
+   submitting a stale/empty value for whichever field was filled first ("Invalid
+   credentials" despite the browser visibly showing the correct values). Real
+   human interaction has enough natural delay between typing and clicking
+   that this never surfaces; resolved in testing by giving each field's
+   commit a real round-trip before the next action.
+
+Verified live in-browser: login; the Dashboard generate-flow for a normal
+customer (CUST_001) and the NTC edge case (CUST_003 — GST section correctly
+absent, UPI-substituted trend chart, neutral GST-quality score, `NA`
+cross-validation); all 4 Plotly chart types rendering and interactive; flags
+display including the "None recorded" empty state; JSON downloads; the
+Reports page's composite-score comparison chart, full history table, and
+individual report viewer; and logout from both Dashboard and Reports.
+
+---
+
+## 7. Environment issues found and resolved
+
+Caught by actually running the pipeline against live infrastructure rather
+than trusting the code in isolation.
 
 1. **Port collision, not a real conflict.** A native Windows PostgreSQL
    service was already bound to 5432. Docker's WSL2-backed port forwarding
@@ -199,9 +406,13 @@ Docker rather than trusting the code in isolation.
    drop the volume and force a genuinely clean init, confirmed via the
    container's own startup log before retrying the app connection.
 
+3. **Gemini `429`s were a model-quota provisioning issue, not a rate limit**
+   — see §5 for the full investigation. Resolved by switching the default
+   model rather than waiting or contacting billing.
+
 ---
 
-## 6. Mock data defects found and fixed
+## 8. Mock data defects found and fixed
 
 Confirmed by cross-checking generated ratios against the documented persona
 characteristics in [SYNTHETIC_DATA_README.md](../mock_data/SYNTHETIC_DATA_README.md)
@@ -220,7 +431,7 @@ hardcodes assumptions about the underlying numeric ranges.
 
 ---
 
-## 7. Verification evidence
+## 9. Verification evidence
 
 **ETL, first run and after regeneration (identical both times):**
 
@@ -262,9 +473,31 @@ calendar date (upsert on `customer_id, scorecard_date`), confirmed via direct
 query — historical scorecards from before the data fix remain intact under
 their original date, current-day scorecards reflect the corrected data.
 
+**AI Engine:**
+
+- All 6 customers produced a full report (narrative + 5 chart configs) via
+  the deterministic fallback path first — verified before any live API
+  usage, so the pipeline's correctness didn't depend on Gemini being
+  reachable.
+- All 5 chart configs (gauge/bar/table/2×line) actually rendered through
+  Matplotlib (`ai/render.py`) and visually inspected — this is what caught
+  the emoji-glyph bug (§5).
+- One genuine live Gemini generation confirmed: `HTTP 200`,
+  `generation_method: "gemini"`, persisted to `ai_reports`, narrative
+  spot-checked line-by-line against the source scorecard for hallucination
+  (none found).
+
+**Streamlit Frontend:**
+
+- Full login → select customer → generate → view card → logout flow
+  exercised live in a real browser session (not just code review), for both
+  a normal customer and the NTC edge case.
+- Reports page comparison chart and historical browse confirmed against
+  real persisted data.
+
 ---
 
-## 8. Success criteria status
+## 10. Success criteria status
 
 **ETL Engine**
 - [x] All 6 synthetic customers loaded
@@ -280,21 +513,44 @@ their original date, current-day scorecards reflect the corrected data.
 - [x] Cross-validation metrics detect mismatches (and correctly report `null`/no-mismatch for NTC and well-reconciled customers)
 - [x] Ratios manually sanity-checked against documented personas for CUST_001, CUST_002, CUST_003
 
+**AI Engine**
+- [x] All 6 scorecards → 6 reports generated, each with narrative + 5 chart configs
+- [x] Every narrative claim cites a data source
+- [x] Chart configs valid JSON, actually rendered through Matplotlib (all 5 types)
+- [x] Reports stored in PostgreSQL (`ai_reports`, JSONB)
+- [x] No hallucinated data — chart data 100% code-built, narrative facts 100% scorecard/DB-sourced
+- [x] Temperature 0.3; quota/timeout/invalid-output errors verified to degrade to fallback rather than fail
+- [x] Live Gemini generation confirmed successful (see §5, §9)
+
+**Streamlit Frontend**
+- [x] Login works with hardcoded credentials
+- [x] Dashboard: real customer selection + real pipeline call
+- [x] Progress indicator reflects real pipeline stages
+- [x] Health card renders all components, verified for a normal customer and the NTC edge case
+- [x] Charts render correctly and interactively (Plotly)
+- [x] Green/red flags display prominently, including the empty state
+- [x] Logout clears session, verified from every authenticated page
+- [x] Reports page: comparison chart + full history, verified live
+
 ---
 
-## 9. Known limitations / not yet done
+## 11. Known limitations / not yet done
 
-- **Layer 3 (AI Engine)** — narrative/report generation from the scorecard
-  JSON — is not started.
-- Employee headcount trend is still a stochastic walk, not a deterministic
-  fit to each persona's stated growth rate; occasional larger swings (e.g.
-  a small-base customer going from 4 to 10 employees) are possible by chance
+- Employee headcount trend is a stochastic walk, not a deterministic fit to
+  each persona's stated growth rate; occasional larger swings (e.g. a
+  small-base customer going from 4 to 10 employees) are possible by chance
   and are directionally but not numerically tied to the persona description.
 - `existing_debt_instrument_count`, `days_sales_outstanding`,
   `repeat_customer_rate`, ITC utilization, and customer concentration are all
   reported as `"NA"` — the source data has no instrument-level, receivables,
   payer-level, or invoice-level detail to compute them from, per the original
   spec's own notes.
+- No separate backend HTTP API exists — a deliberate choice (§6), not an
+  oversight, but means the frontend and engines share one Python process
+  rather than being independently deployable services.
+- No real PDF generation — the frontend offers JSON downloads instead (§6);
+  adding PDF export would be new scope no engine spec in this project asked for.
 - No automated test suite exists yet (`tests/` directory was scaffolded but
-  is empty) — verification so far has been live, manual runs against Docker
-  Postgres, documented in §6–7 of this report.
+  is empty) — verification throughout has been live, manual runs against
+  Docker Postgres and a real browser session, documented in §7–9 of this
+  report.
