@@ -34,6 +34,13 @@
 # 6. **Region is asia-south1 (Mumbai)**, matching this project's earlier,
 #    more deliberate requirement (judge/demo latency from India) over the
 #    generic us-central1 default that appears elsewhere in this brief.
+# 7. **Built via `gcloud builds submit` (Cloud Build), not local `docker
+#    build` + `docker push`.** Confirmed directly in Cloud Shell: the local
+#    Docker daemon there cannot reliably reach Artifact Registry --
+#    `docker push` failed repeatedly with `connection refused` even with
+#    correct auth and IAM. Cloud Build builds and pushes from inside Google's
+#    own network, sidestepping that path entirely, and means this script no
+#    longer needs Docker installed/running locally at all.
 #
 # None of this is exotic -- it's the same script, done without the parts that
 # would silently produce a broken or insecure deployment.
@@ -51,7 +58,7 @@ SQLITE_FILE="msme_fhc.db"                       # baked into the image at this p
 GEMINI_API_KEY="${GEMINI_API_KEY:-demo-key}"    # falls back to the AI Engine's deterministic template narrative if unset/invalid
 OUTPUT_FILE="cloud-run-url.txt"
 
-TOTAL_STEPS=7
+TOTAL_STEPS=6
 step() { echo; echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; echo "[$1/${TOTAL_STEPS}] $2"; echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"; }
 ok()   { echo "✅ $1"; }
 info() { echo "⏳ $1"; }
@@ -59,10 +66,9 @@ warn() { echo "⚠️  $1"; }
 die()  { echo "❌ $1" >&2; exit 1; }
 
 # ---- Dependency checks -------------------------------------------------------
+# No local Docker required -- Cloud Build does the build+push remotely (see deviation #7).
 command -v gcloud >/dev/null 2>&1 || die "gcloud CLI not found. Install: https://cloud.google.com/sdk/docs/install"
-command -v docker >/dev/null 2>&1 || die "docker not found. Install Docker Desktop and ensure it's running."
 command -v uv     >/dev/null 2>&1 || die "uv not found (needed for the local pre-build step). Install: https://docs.astral.sh/uv/"
-docker info >/dev/null 2>&1 || die "Docker daemon is not running. Start Docker Desktop and re-run."
 gcloud auth list --filter=status:ACTIVE --format='value(account)' 2>/dev/null | grep -q . \
     || die "No active gcloud auth. Run: gcloud auth login"
 [ -f Dockerfile ] || die "Dockerfile not found in $(pwd). Run this script from the project root."
@@ -93,7 +99,7 @@ else
 fi
 
 info "Enabling required APIs..."
-gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com --quiet \
+gcloud services enable run.googleapis.com artifactregistry.googleapis.com secretmanager.googleapis.com cloudbuild.googleapis.com --quiet \
     || die "API enablement failed -- try enabling run.googleapis.com manually in the console and re-run."
 ok "APIs enabled"
 
@@ -110,8 +116,8 @@ DB_ENGINE=sqlite SQLITE_PATH="$SQLITE_FILE" GEMINI_API_KEY="$GEMINI_API_KEY" uv 
 [ -f "$SQLITE_FILE" ] || die "Pre-build did not produce $SQLITE_FILE -- check the errors above."
 ok "Local database populated ($SQLITE_FILE)"
 
-# ---- Step 3: Build Docker image ----------------------------------------------
-step 3 "Docker build"
+# ---- Step 3: Build and push via Cloud Build -----------------------------------
+step 3 "Build and push (Cloud Build -- see deviation #7)"
 
 if gcloud artifacts repositories describe "$ARTIFACT_REPO" --location="$REGION" >/dev/null 2>&1; then
     ok "Artifact Registry repo $ARTIFACT_REPO already exists"
@@ -122,31 +128,14 @@ else
 fi
 
 IMAGE="${REGION}-docker.pkg.dev/${PROJECT_ID}/${ARTIFACT_REPO}/${APP_NAME}:latest"
-info "Building $IMAGE (includes $SQLITE_FILE via the Dockerfile's COPY . . step)..."
-docker build --tag "$IMAGE" . || die "Docker build failed -- see errors above."
-docker images | grep -q "$ARTIFACT_REPO" || warn "Built image not found in 'docker images' output -- continuing anyway, but double check the tag."
-ok "Image built"
+info "Submitting build to Cloud Build (includes $SQLITE_FILE via the Dockerfile's COPY . . step)..."
+info "This uploads the project directory and builds remotely -- typically 2-4 minutes."
+gcloud builds submit --tag "$IMAGE" --region="$REGION" . \
+    || die "Cloud Build failed -- see errors above. Check: gcloud builds list --region=$REGION --limit=1"
+ok "Image built and pushed"
 
-# ---- Step 4: Push to Artifact Registry ---------------------------------------
-step 4 "Push image"
-
-gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet >/dev/null 2>&1
-
-PUSH_OK=0
-for attempt in 1 2 3; do
-    info "Pushing $IMAGE (attempt $attempt/3)..."
-    if docker push "$IMAGE"; then
-        PUSH_OK=1
-        break
-    fi
-    warn "Push failed, retrying..."
-    sleep 3
-done
-[ "$PUSH_OK" -eq 1 ] || die "docker push failed after 3 attempts. Check your network and Artifact Registry permissions."
-ok "Image pushed"
-
-# ---- Step 5: Service account + secret ----------------------------------------
-step 5 "Service account and secrets"
+# ---- Step 4: Service account + secret ----------------------------------------
+step 4 "Service account and secrets"
 
 SA_EMAIL="${SERVICE_ACCOUNT_NAME}@${PROJECT_ID}.iam.gserviceaccount.com"
 if gcloud iam service-accounts describe "$SA_EMAIL" >/dev/null 2>&1; then
@@ -168,8 +157,8 @@ else
 fi
 ok "Gemini key stored in Secret Manager"
 
-# ---- Step 6: Deploy to Cloud Run ----------------------------------------------
-step 6 "Deploy to Cloud Run"
+# ---- Step 5: Deploy to Cloud Run ----------------------------------------------
+step 5 "Deploy to Cloud Run"
 
 gcloud run deploy "$APP_NAME" \
     --image="$IMAGE" \
@@ -187,8 +176,8 @@ gcloud run deploy "$APP_NAME" \
     || die "Cloud Run deploy failed -- see errors above. Common cause: image not fully propagated in Artifact Registry yet -- wait 30s and re-run this script (it's idempotent)."
 ok "Deployed"
 
-# ---- Step 7: Retrieve, verify, and save the URL -------------------------------
-step 7 "Verify and save URL"
+# ---- Step 6: Retrieve, verify, and save the URL -------------------------------
+step 6 "Verify and save URL"
 
 SERVICE_URL="$(gcloud run services describe "$APP_NAME" --region="$REGION" --format='value(status.url)')"
 [ -n "$SERVICE_URL" ] || die "Could not retrieve service URL. Check manually: gcloud run services describe $APP_NAME --region $REGION"
