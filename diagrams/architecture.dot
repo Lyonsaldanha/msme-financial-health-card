@@ -1,0 +1,41 @@
+digraph architecture {
+  rankdir=TB;
+  bgcolor="white";
+  fontname="Helvetica";
+  nodesep=0.45;
+  ranksep=0.55;
+  node [fontname="Helvetica", shape=box, style="rounded,filled", fontsize=15, margin="0.22,0.16"];
+  edge [fontname="Helvetica", fontsize=11, color="#666666", arrowsize=0.8, penwidth=1.2];
+
+  // ---- Row 1 (left to right) ----
+  { rank=same;
+    sources   [label="Data Sources\nGST · UPI · AA · EPFO", fillcolor="#FFE0B2"];
+    etl       [label="Layer 1: ETL Engine\nNormalize + Validate\n+ Audit Lineage", fillcolor="#BBDEFB"];
+    db1       [label="PostgreSQL\n(raw + lineage)", shape=cylinder, fillcolor="#E1BEE7", fontsize=13];
+    analytics [label="Layer 2: Analytics Engine\nRatios -> Cross-Validation ->\nComposite Score + Flags", fillcolor="#C8E6C9"];
+    db2       [label="scorecards\n(JSONB)", shape=cylinder, fillcolor="#E1BEE7", fontsize=13];
+  }
+  sources -> etl -> db1 -> analytics -> db2;
+
+  // ---- Row 2 (left to right, wraps under Row 1) ----
+  { rank=same;
+    ai       [label="Layer 3: AI Engine\nFact Retrieval -> Prompt ->\nGemini LLM + Chart Builder", fillcolor="#FFF9C4"];
+    db3      [label="ai_reports\n(JSONB)", shape=cylinder, fillcolor="#E1BEE7", fontsize=13];
+    frontend [label="Streamlit Frontend\nLogin -> Dashboard -> Reports", fillcolor="#F3E5F5"];
+    lender   [label="Bank / Lender", shape=ellipse, fillcolor="#FFCDD2"];
+  }
+  ai -> db3 -> frontend -> lender;
+
+  // wrap connector row1 -> row2: drawn but NOT allowed to pull ai toward db2's column
+  db2 -> ai [minlen=1, penwidth=1.6, color="#333333", constraint=false];
+  // invisible anchor: pulls "ai" to align under "sources" (left edge of row 2 under row 1)
+  sources -> ai [style=invis, weight=20];
+
+  // external systems -- placed on their own ranks (above row1 / below row2) so they
+  // add height, not width
+  uli [label="ULI / AA Ecosystem (Sahamati)\n[data contract]", shape=note, fillcolor="#B2DFDB", fontsize=12];
+  uli -> etl [style=dashed];
+
+  geminiapi [label="Google Gemini API\n(AI Studio)", shape=note, fillcolor="#B2DFDB", fontsize=12];
+  ai -> geminiapi [style=dashed];
+}
