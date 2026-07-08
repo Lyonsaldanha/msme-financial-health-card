@@ -85,17 +85,22 @@ def retrieve_facts(scorecard: dict[str, Any], customer: dict[str, Any], gst_rows
         "upi_transactions_count": upi["total_transactions"],
         "upi_active_days": upi["active_days"],
         "upi_pattern_interpretation": interpret_active_days(upi["active_days_percent"]),
-        # AA / bank
-        "aa_avg_credits": _rupees_to_lakhs(aa["avg_monthly_credits"]),
-        "aa_adb": _rupees_to_lakhs(aa["avg_daily_balance"]),
-        "dscr": aa["dscr"],
-        "dscr_interpretation": interpret_dscr(aa["dscr"]),
-        "cheque_returns": aa["cheque_return_count"],
-        "cash_withdrawal_pct": aa["cash_withdrawal_percent"],
-        # EPFO
-        "employee_growth": epfo["employee_growth_percent"] if epfo["employee_growth_percent"] is not None else "NA",
-        "payroll_avg": epfo["avg_monthly_payroll"],
-        "epfo_delays": epfo["contribution_timeliness_late_count"],
+        # AA / bank -- aa is {} for a customer with no bank_statements rows
+        # (see analytics_engine.py::compute_aa_ratios), so every access here
+        # goes through .get() with the same "NA" convention GST uses above,
+        # rather than a direct [] lookup that would raise KeyError.
+        "is_aa_available": bool(aa),
+        "aa_avg_credits": _rupees_to_lakhs(aa["avg_monthly_credits"]) if aa else "NA",
+        "aa_adb": _rupees_to_lakhs(aa["avg_daily_balance"]) if aa else "NA",
+        "dscr": aa.get("dscr", "NA"),
+        "dscr_interpretation": interpret_dscr(aa.get("dscr")),
+        "cheque_returns": aa.get("cheque_return_count", "NA"),
+        "cash_withdrawal_pct": aa.get("cash_withdrawal_percent", "NA"),
+        # EPFO -- epfo is {} for a customer with no epfo_payroll rows, same as aa above.
+        "is_epfo_available": bool(epfo),
+        "employee_growth": epfo.get("employee_growth_percent") if epfo.get("employee_growth_percent") is not None else "NA",
+        "payroll_avg": epfo.get("avg_monthly_payroll", "NA"),
+        "epfo_delays": epfo.get("contribution_timeliness_late_count", "NA"),
         # Cross-validation
         "gst_aa_ratio": cross["gst_vs_aa_ratio"] if cross["gst_vs_aa_ratio"] is not None else "NA",
         "gst_upi_ratio": cross["gst_vs_upi_ratio"] if cross["gst_vs_upi_ratio"] is not None else "NA",

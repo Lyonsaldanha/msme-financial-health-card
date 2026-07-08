@@ -20,10 +20,16 @@ def build_fallback_narrative(facts: dict[str, Any]) -> NarrativeReport:
         f"{facts['composite_score']}/100, rated {facts['score_interpretation']} (per Analytics Engine)."
     )
 
-    financial_health = (
-        f"Based on {facts['months']} months of transaction history, DSCR is {facts['dscr']}, indicating "
-        f"{facts['dscr_interpretation']} (per bank statements)."
-    )
+    if facts["dscr"] != "NA":
+        financial_health = (
+            f"Based on {facts['months']} months of transaction history, DSCR is {facts['dscr']}, indicating "
+            f"{facts['dscr_interpretation']} (per bank statements)."
+        )
+    else:
+        financial_health = (
+            f"Based on {facts['months']} months of transaction history, bank statement (AA) data is not "
+            "available for this customer."
+        )
     if facts["is_gst_registered"] and facts["gst_cv"] != "NA":
         financial_health += (
             f" GST revenue volatility (CV={facts['gst_cv']}%) shows {facts['cv_interpretation']} (per GST data)."

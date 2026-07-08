@@ -177,7 +177,12 @@ def validate_data(data_dir: str | Path) -> dict[str, list[str]]:
             report[table_name] = [f"{file_path.name} not found"]
             continue
 
-        raw_records = json.loads(file_path.read_text(encoding="utf-8"))
+        try:
+            raw_records = json.loads(file_path.read_text(encoding="utf-8"))
+        except (OSError, json.JSONDecodeError) as exc:
+            report[table_name] = [f"{file_path.name}: failed to read/parse: {exc}"]
+            continue
+
         issues: list[str] = []
         for raw in raw_records:
             try:

@@ -13,8 +13,8 @@ from __future__ import annotations
 
 import io
 import tempfile
-from pathlib import Path
 from typing import Any
+from xml.sax.saxutils import escape as _xml_escape
 
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import A4
@@ -40,6 +40,17 @@ _DIMENSION_LABELS = {
     "epfo_stability": "EPFO Stability",
     "compliance_bureau": "Compliance & Bureau",
 }
+
+
+def _esc(value: Any) -> str:
+    """Escape text before handing it to a Paragraph flowable, which parses its
+    argument as a restricted XML/HTML subset -- confirmed by reproduction that
+    an unescaped '&' in narrative text (e.g. "R&D", "cash & carry") silently
+    corrupts the rendered PDF instead of raising. Narrative text is either raw
+    Gemini output or built from business_name/sector/flag strings, none of
+    which are constrained against '&', '<', '>'.
+    """
+    return _xml_escape(str(value))
 
 
 def _styles() -> dict[str, ParagraphStyle]:
@@ -73,7 +84,7 @@ def _dimension_table(dimension_scores: dict[str, int], styles: dict[str, Paragra
 
 def _bullet_list(items: list[str], styles: dict[str, ParagraphStyle]) -> ListFlowable:
     return ListFlowable(
-        [ListItem(Paragraph(item, styles["body"])) for item in items],
+        [ListItem(Paragraph(_esc(item), styles["body"])) for item in items],
         bulletType="bullet",
     )
 
@@ -83,10 +94,10 @@ def build_pdf_report(customer: dict[str, Any], scorecard: dict[str, Any], report
     styles = _styles()
     story: list[Any] = []
 
-    story.append(Paragraph(customer["business_name"], styles["title"]))
+    story.append(Paragraph(_esc(customer["business_name"]), styles["title"]))
     story.append(
         Paragraph(
-            f"GST: {customer['gst_number']} &nbsp;|&nbsp; Sector: {customer['sector']}",
+            f"GST: {_esc(customer['gst_number'])} &nbsp;|&nbsp; Sector: {_esc(customer['sector'])}",
             styles["caption"],
         )
     )
@@ -100,9 +111,9 @@ def build_pdf_report(customer: dict[str, Any], scorecard: dict[str, Any], report
 
     story.append(
         Paragraph(
-            f"<b>Overall Health:</b> {scorecard['score_interpretation']} "
+            f"<b>Overall Health:</b> {_esc(scorecard['score_interpretation'])} "
             f"({scorecard['composite_score']}/100) &nbsp;|&nbsp; "
-            f"<b>Assessment Date:</b> {scorecard['scorecard_date']}",
+            f"<b>Assessment Date:</b> {_esc(scorecard['scorecard_date'])}",
             styles["body"],
         )
     )
@@ -132,14 +143,14 @@ def build_pdf_report(customer: dict[str, Any], scorecard: dict[str, Any], report
 
         narrative = report["narrative"]
         story.append(Paragraph("Financial Assessment", styles["heading"]))
-        story.append(Paragraph(narrative["summary"], styles["body"]))
-        story.append(Paragraph(narrative["financial_health"], styles["body"]))
+        story.append(Paragraph(_esc(narrative["summary"]), styles["body"]))
+        story.append(Paragraph(_esc(narrative["financial_health"]), styles["body"]))
         story.append(Paragraph("Key strengths:", styles["body"]))
         story.append(_bullet_list(narrative["strengths"], styles))
         story.append(Paragraph("Key risks:", styles["body"]))
         story.append(_bullet_list(narrative["risks"], styles))
         story.append(Paragraph("Recommendations:", styles["body"]))
-        story.append(Paragraph(narrative["recommendations"], styles["body"]))
+        story.append(Paragraph(_esc(narrative["recommendations"]), styles["body"]))
         story.append(Spacer(1, 0.5 * cm))
 
         audit = report["audit_trail"]

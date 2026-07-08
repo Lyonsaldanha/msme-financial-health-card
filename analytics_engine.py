@@ -195,7 +195,11 @@ def compute_cross_validation(customer_id: str) -> dict:
     avg_epfo_payroll = (epfo_df["monthly_payroll_paise"] / 100).mean() if not epfo_df.empty else None
 
     def ratio_and_flag(numerator: float | None, denominator: float | None) -> tuple[float | None, bool | None]:
-        if not numerator or not denominator:
+        # `is None` / `== 0` rather than a truthiness check -- a falsy check
+        # would treat a genuine zero numerator (e.g. GST shows zero sales) the
+        # same as missing data, when a real zero is itself a meaningful
+        # mismatch signal worth flagging, not an absence of data.
+        if numerator is None or denominator is None or denominator == 0:
             return None, None
         r = round(numerator / denominator, 2)
         return r, bool(r > 1.5 or r < 0.5)

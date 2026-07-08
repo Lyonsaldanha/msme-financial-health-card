@@ -8,7 +8,7 @@ import os
 fake = Faker('en_IN')
 
 # Ensure output directory exists
-os.makedirs('synthetic_data', exist_ok=True)
+os.makedirs('mock_data', exist_ok=True)
 
 # Customer personas configuration
 PERSONAS = {
@@ -120,10 +120,14 @@ def generate_gst_data(customer_id, persona_key, year=2024):
         
         # Filing delays
         filing_date = datetime(year, month, 20)  # Normal filing on 20th
+        is_delayed = False
         if persona['gst_filing_delays'] > 0:
             if randint(1, 5) <= persona['gst_filing_delays']:
                 filing_date += timedelta(days=randint(5, 20))
-        
+                is_delayed = True  # tracked directly -- a big enough delay rolls filing_date
+                                    # into the next month, so re-deriving from filing_date.day > 20
+                                    # afterwards would wrongly read back as "on time"
+
         gst_data.append({
             'customer_id': customer_id,
             'month': month,
@@ -131,7 +135,7 @@ def generate_gst_data(customer_id, persona_key, year=2024):
             'gstr_sales': max(0, int(sales)),
             'tax_paid': max(0, int(tax_paid)),
             'filing_date': filing_date.strftime('%Y-%m-%d'),
-            'is_delayed': filing_date.day > 20
+            'is_delayed': is_delayed
         })
     
     return gst_data
@@ -386,54 +390,54 @@ def main():
     
     # Write JSON files
     print("\n📁 Writing JSON files...")
-    with open('synthetic_data/customers.json', 'w') as f:
+    with open('mock_data/customers.json', 'w') as f:
         json.dump(all_customers, f, indent=2)
     
-    with open('synthetic_data/gst_filings.json', 'w') as f:
+    with open('mock_data/gst_filings.json', 'w') as f:
         json.dump(all_gst, f, indent=2)
     
-    with open('synthetic_data/upi_transactions.json', 'w') as f:
+    with open('mock_data/upi_transactions.json', 'w') as f:
         json.dump(all_upi, f, indent=2)
     
-    with open('synthetic_data/bank_statements.json', 'w') as f:
+    with open('mock_data/bank_statements.json', 'w') as f:
         json.dump(all_aa, f, indent=2)
     
-    with open('synthetic_data/epfo_payroll.json', 'w') as f:
+    with open('mock_data/epfo_payroll.json', 'w') as f:
         json.dump(all_epfo, f, indent=2)
     
     # Write CSV files
     print("📄 Writing CSV files...")
     
     # Customers CSV
-    with open('synthetic_data/customers.csv', 'w', newline='') as f:
+    with open('mock_data/customers.csv', 'w', newline='') as f:
         writer = csv.DictWriter(f, fieldnames=all_customers[0].keys())
         writer.writeheader()
         writer.writerows(all_customers)
     
     # GST CSV
     if all_gst:
-        with open('synthetic_data/gst_filings.csv', 'w', newline='') as f:
+        with open('mock_data/gst_filings.csv', 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=all_gst[0].keys())
             writer.writeheader()
             writer.writerows(all_gst)
     
     # UPI CSV
     if all_upi:
-        with open('synthetic_data/upi_transactions.csv', 'w', newline='') as f:
+        with open('mock_data/upi_transactions.csv', 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=all_upi[0].keys())
             writer.writeheader()
             writer.writerows(all_upi[:30])  # Sample to keep file size reasonable
     
     # AA CSV
     if all_aa:
-        with open('synthetic_data/bank_statements.csv', 'w', newline='') as f:
+        with open('mock_data/bank_statements.csv', 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=all_aa[0].keys())
             writer.writeheader()
             writer.writerows(all_aa)
     
     # EPFO CSV
     if all_epfo:
-        with open('synthetic_data/epfo_payroll.csv', 'w', newline='') as f:
+        with open('mock_data/epfo_payroll.csv', 'w', newline='') as f:
             writer = csv.DictWriter(f, fieldnames=all_epfo[0].keys())
             writer.writeheader()
             writer.writerows(all_epfo)
@@ -446,7 +450,7 @@ def main():
     print(f"  UPI transactions: {len(all_upi)}")
     print(f"  Bank statements: {len(all_aa)}")
     print(f"  EPFO records: {len(all_epfo)}")
-    print(f"\n📂 Output: synthetic_data/")
+    print(f"\n📂 Output: mock_data/")
     print("  - customers.json / customers.csv")
     print("  - gst_filings.json / gst_filings.csv")
     print("  - upi_transactions.json / upi_transactions.csv")

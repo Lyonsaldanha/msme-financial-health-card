@@ -136,8 +136,8 @@ class AIEngine:
                     src for src, available in [
                         ("GST", facts["is_gst_registered"]),
                         ("UPI", True),
-                        ("AA", True),
-                        ("EPFO", True),
+                        ("AA", facts["is_aa_available"]),
+                        ("EPFO", facts["is_epfo_available"]),
                     ] if available
                 ],
                 "ratios_cited": count_cited_ratios(facts),

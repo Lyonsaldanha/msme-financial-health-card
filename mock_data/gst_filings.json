@@ -132,7 +132,7 @@
     "gstr_sales": 171259,
     "tax_paid": 30826,
     "filing_date": "2024-04-03",
-    "is_delayed": false
+    "is_delayed": true
   },
   {
     "customer_id": "CUST_002",
@@ -195,7 +195,7 @@
     "gstr_sales": 163969,
     "tax_paid": 29514,
     "filing_date": "2024-11-01",
-    "is_delayed": false
+    "is_delayed": true
   },
   {
     "customer_id": "CUST_002",
@@ -285,7 +285,7 @@
     "gstr_sales": 404516,
     "tax_paid": 72812,
     "filing_date": "2024-09-02",
-    "is_delayed": false
+    "is_delayed": true
   },
   {
     "customer_id": "CUST_004",
