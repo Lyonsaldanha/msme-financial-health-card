@@ -31,6 +31,11 @@ TEMPERATURE = 0.3  # low temperature = factual mode, per spec
 # sized generously so structured JSON generation doesn't get truncated by that.
 MAX_OUTPUT_TOKENS = 4096
 MAX_ATTEMPTS = 2
+# Without this, a stalled network request hangs the underlying httpx client
+# indefinitely -- observed directly: a call that hung for minutes with no
+# error and no response, blocking generate_report() forever instead of
+# degrading to the fallback narrative like every other failure mode here does.
+REQUEST_TIMEOUT_MS = int(os.getenv("GEMINI_TIMEOUT_MS", "30000"))
 
 # Minimum spacing between outbound Gemini calls, enforced process-wide. The
 # free-tier quota is tied to the API key, not to any one caller -- a Dashboard
@@ -59,7 +64,7 @@ def _get_client() -> genai.Client | None:
     api_key = os.getenv("GEMINI_API_KEY")
     if not api_key:
         return None
-    return genai.Client(api_key=api_key)
+    return genai.Client(api_key=api_key, http_options=types.HttpOptions(timeout=REQUEST_TIMEOUT_MS))
 
 
 def _describe_quota_error(exc: "genai_errors.APIError") -> str:

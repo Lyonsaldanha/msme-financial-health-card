@@ -12,3 +12,9 @@ wheels/
 
 # Deployment secrets (contains a live DB password -- never commit)
 demo-deployment.env
+
+# Local SQLite database files (DB_ENGINE=sqlite dev/test mode)
+*.db
+
+# Deployment output
+cloud-run-url.txt

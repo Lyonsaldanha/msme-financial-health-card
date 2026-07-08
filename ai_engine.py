@@ -45,7 +45,7 @@ from ai.client import call_gemini
 from ai.facts import count_cited_ratios, retrieve_facts as _retrieve_facts
 from ai.fallback import build_fallback_narrative
 from ai.prompts import SYSTEM_PROMPT, build_user_prompt
-from db.connection import get_engine
+from db.connection import get_engine, parse_json_field
 from db.schema import create_tables
 
 logger = logging.getLogger(__name__)
@@ -149,16 +149,23 @@ class AIEngine:
         return report
 
     def _save_report(self, report: dict[str, Any]) -> None:
-        with get_engine().begin() as conn:
+        engine = get_engine()
+        is_sqlite = engine.dialect.name == "sqlite"
+        # report_json is JSONB on Postgres (needs a cast from the bound text
+        # parameter) but plain TEXT on SQLite; now() is Postgres-only, SQLite
+        # uses CURRENT_TIMESTAMP for the same "right now" value.
+        json_expr = ":report_json" if is_sqlite else "CAST(:report_json AS JSONB)"
+        now_expr = "CURRENT_TIMESTAMP" if is_sqlite else "now()"
+        with engine.begin() as conn:
             conn.execute(
                 text(
-                    """
+                    f"""
                     INSERT INTO ai_reports (customer_id, scorecard_date, report_json, generation_method)
-                    VALUES (:customer_id, :scorecard_date, CAST(:report_json AS JSONB), :generation_method)
+                    VALUES (:customer_id, :scorecard_date, {json_expr}, :generation_method)
                     ON CONFLICT (customer_id, scorecard_date) DO UPDATE SET
                         report_json = EXCLUDED.report_json,
                         generation_method = EXCLUDED.generation_method,
-                        generated_at = now()
+                        generated_at = {now_expr}
                     """
                 ),
                 {
@@ -184,17 +191,23 @@ class AIEngine:
 
 def _latest_scorecards() -> list[dict[str, Any]]:
     """Load each customer's most recent scorecard from the scorecards table."""
+    # ROW_NUMBER() rather than Postgres's DISTINCT ON (customer_id, ...) idiom --
+    # SQLite doesn't support DISTINCT ON at all; window functions work identically
+    # on both, so one query serves both dialects instead of branching.
     with get_engine().connect() as conn:
         rows = conn.execute(
             text(
                 """
-                SELECT DISTINCT ON (customer_id) customer_id, scorecard_json
-                FROM scorecards
-                ORDER BY customer_id, scorecard_date DESC
+                SELECT customer_id, scorecard_json FROM (
+                    SELECT customer_id, scorecard_json,
+                           ROW_NUMBER() OVER (PARTITION BY customer_id ORDER BY scorecard_date DESC) AS rn
+                    FROM scorecards
+                ) ranked
+                WHERE rn = 1
                 """
             )
         ).all()
-    return [row.scorecard_json for row in rows]
+    return [parse_json_field(row.scorecard_json) for row in rows]
 
 
 def main() -> None:

@@ -66,13 +66,14 @@ TABLE_SPECS: dict[str, TableSpec] = {
 }
 
 
-def _build_upsert_sql(table: str, columns: list[str], conflict_columns: tuple[str, ...]) -> str:
+def _build_upsert_sql(table: str, columns: list[str], conflict_columns: tuple[str, ...], dialect: str) -> str:
     """Generic INSERT ... ON CONFLICT DO UPDATE, built from the row's own columns."""
+    now_expr = "CURRENT_TIMESTAMP" if dialect == "sqlite" else "now()"  # now() is Postgres-only
     col_list = ", ".join(columns)
     placeholders = ", ".join(f":{c}" for c in columns)
     update_columns = [c for c in columns if c not in conflict_columns]
     set_clause = ", ".join(f"{c} = EXCLUDED.{c}" for c in update_columns)
-    set_clause = f"{set_clause}, updated_at = now()" if set_clause else "updated_at = now()"
+    set_clause = f"{set_clause}, updated_at = {now_expr}" if set_clause else f"updated_at = {now_expr}"
     return (
         f"INSERT INTO {table} ({col_list}) VALUES ({placeholders}) "
         f"ON CONFLICT ({', '.join(conflict_columns)}) DO UPDATE SET {set_clause}"
@@ -142,7 +143,7 @@ def load_json_to_db(file_path: str | Path, table_name: str) -> LoadResult:
 
         if rows_to_upsert:
             columns = list(rows_to_upsert[0].keys())
-            upsert_sql = _build_upsert_sql(table_name, columns, spec.conflict_columns)
+            upsert_sql = _build_upsert_sql(table_name, columns, spec.conflict_columns, conn.dialect.name)
             conn.execute(text(upsert_sql), rows_to_upsert)
 
         status = "SUCCESS" if skipped == 0 else ("PARTIAL" if rows_to_upsert else "FAILED")

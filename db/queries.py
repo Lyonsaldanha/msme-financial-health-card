@@ -6,7 +6,7 @@ from typing import Any
 
 from sqlalchemy import text
 
-from db.connection import get_engine
+from db.connection import get_engine, parse_json_field
 
 # Table names here are fixed literals controlled by this module only, never user input.
 _CHILD_TABLES = (
@@ -74,4 +74,4 @@ def get_ai_report(customer_id: str, scorecard_date: Any) -> dict[str, Any] | Non
         ).first()
     if row is None:
         return None
-    return {"report": row.report_json, "scorecard": row.scorecard_json}
+    return {"report": parse_json_field(row.report_json), "scorecard": parse_json_field(row.scorecard_json)}

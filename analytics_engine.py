@@ -272,12 +272,17 @@ def generate_scorecard(customer_id: str) -> dict:
 
 
 def _save_scorecard(scorecard: dict) -> None:
-    with get_engine().begin() as conn:
+    engine = get_engine()
+    # scorecard_json is JSONB on Postgres (needs an explicit cast from the bound
+    # text parameter) but plain TEXT on SQLite (no JSONB type there -- see
+    # db/schema_sqlite.sql); the value itself is the same json.dumps() string either way.
+    json_expr = ":scorecard_json" if engine.dialect.name == "sqlite" else "CAST(:scorecard_json AS JSONB)"
+    with engine.begin() as conn:
         conn.execute(
             text(
-                """
+                f"""
                 INSERT INTO scorecards (customer_id, scorecard_date, scorecard_json, composite_score)
-                VALUES (:customer_id, :scorecard_date, CAST(:scorecard_json AS JSONB), :composite_score)
+                VALUES (:customer_id, :scorecard_date, {json_expr}, :composite_score)
                 ON CONFLICT (customer_id, scorecard_date) DO UPDATE SET
                     scorecard_json = EXCLUDED.scorecard_json,
                     composite_score = EXCLUDED.composite_score
