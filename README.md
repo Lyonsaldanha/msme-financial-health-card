@@ -365,3 +365,18 @@ in [context/etl_analytics_implementation_report.md](context/etl_analytics_implem
 None of this affects the current 6-customer dataset or anything already
 verified above. None of it is a new exposure beyond what's already visible
 in the source — it's tracked here for follow-up, not fixed yet.
+
+## Future improvements (not yet built)
+
+- **PDF download column on the "Recently Generated Reports" table**
+  (`pages/2_Dashboard.py`). The single-report "Download Health Card (PDF)"
+  button (`components/pdf_export.py`) builds the PDF fresh on every
+  Streamlit rerun — fine for one report. A per-row download column on a
+  10-row table would multiply that into up to 10 live PDF builds (matplotlib
+  chart rendering + reportlab layout) on every rerun of the page, including
+  reruns triggered by unrelated widget interactions elsewhere on the page.
+  The right fix is to generate the PDF once at report-generation time,
+  upload it to object storage (e.g. a GCS bucket), store the resulting URL
+  alongside the report row, and render that column as a
+  `st.column_config.LinkColumn` pointing at the stored file instead of
+  regenerating it live. Deferred, not implemented.

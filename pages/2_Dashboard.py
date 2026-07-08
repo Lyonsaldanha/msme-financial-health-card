@@ -10,6 +10,7 @@ from ai_engine import AIEngine
 from analytics_engine import run_analytics
 from components.auth import render_header, require_login
 from components.cards import render_health_card
+from components.data_viewer import render_raw_data_viewer
 from components.forms import customer_selector
 from db import get_customer_financials, list_ai_reports
 
@@ -22,6 +23,9 @@ tab_generate, tab_reports = st.tabs(["Generate Card", "View Reports"])
 with tab_generate:
     st.subheader("Select Customer")
     customer_id = customer_selector()
+
+    if customer_id:
+        render_raw_data_viewer(customer_id)
 
     generate_btn = st.button("Generate Health Card", type="primary", disabled=customer_id is None)
 

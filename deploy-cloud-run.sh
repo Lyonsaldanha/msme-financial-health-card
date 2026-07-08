@@ -56,6 +56,7 @@ ARTIFACT_REPO="${APP_NAME}-repo"
 SERVICE_ACCOUNT_NAME="${APP_NAME}-run-sa"
 SQLITE_FILE="msme_fhc.db"                       # baked into the image at this path, relative to the Dockerfile's WORKDIR /app
 GEMINI_API_KEY="${GEMINI_API_KEY:-demo-key}"    # falls back to the AI Engine's deterministic template narrative if unset/invalid
+GEMINI_MODEL="${GEMINI_MODEL:-gemini-flash-lite-latest}"  # cheapest current model; export GEMINI_MODEL to override
 OUTPUT_FILE="cloud-run-url.txt"
 
 TOTAL_STEPS=6
@@ -111,8 +112,8 @@ info "Running ETL Engine..."
 DB_ENGINE=sqlite SQLITE_PATH="$SQLITE_FILE" uv run python etl_engine.py
 info "Running Analytics Engine..."
 DB_ENGINE=sqlite SQLITE_PATH="$SQLITE_FILE" uv run python analytics_engine.py
-info "Running AI Engine (uses GEMINI_API_KEY if set and valid, else the deterministic fallback narrative)..."
-DB_ENGINE=sqlite SQLITE_PATH="$SQLITE_FILE" GEMINI_API_KEY="$GEMINI_API_KEY" uv run python ai_engine.py
+info "Running AI Engine (model: $GEMINI_MODEL; uses GEMINI_API_KEY if set and valid, else the deterministic fallback narrative)..."
+DB_ENGINE=sqlite SQLITE_PATH="$SQLITE_FILE" GEMINI_API_KEY="$GEMINI_API_KEY" GEMINI_MODEL="$GEMINI_MODEL" uv run python ai_engine.py
 [ -f "$SQLITE_FILE" ] || die "Pre-build did not produce $SQLITE_FILE -- check the errors above."
 ok "Local database populated ($SQLITE_FILE)"
 
@@ -170,7 +171,7 @@ gcloud run deploy "$APP_NAME" \
     --cpu=1 \
     --timeout=300 \
     --max-instances=1 \
-    --set-env-vars="DB_ENGINE=sqlite,SQLITE_PATH=/app/${SQLITE_FILE}" \
+    --set-env-vars="DB_ENGINE=sqlite,SQLITE_PATH=/app/${SQLITE_FILE},GEMINI_MODEL=${GEMINI_MODEL}" \
     --set-secrets="GEMINI_API_KEY=${APP_NAME}-gemini-key:latest" \
     --quiet \
     || die "Cloud Run deploy failed -- see errors above. Common cause: image not fully propagated in Artifact Registry yet -- wait 30s and re-run this script (it's idempotent)."

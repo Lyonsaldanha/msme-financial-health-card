@@ -14,6 +14,7 @@ from typing import Any
 import streamlit as st
 
 from components.charts import render_chart_config
+from components.pdf_export import build_pdf_report
 
 _DIMENSION_LABELS = {
     "aa_bank_cashflow": "AA Bank Cashflow",
@@ -105,7 +106,7 @@ def render_health_card(customer: dict[str, Any], scorecard: dict[str, Any], repo
     )
 
     st.divider()
-    col_dl1, col_dl2 = st.columns(2)
+    col_dl1, col_dl2, col_dl3 = st.columns(3)
     with col_dl1:
         st.download_button(
             "Download Report (JSON)",
@@ -120,5 +121,13 @@ def render_health_card(customer: dict[str, Any], scorecard: dict[str, Any], repo
             data=json.dumps(scorecard, indent=2),
             file_name=f"scorecard_{customer['customer_id']}_{scorecard['scorecard_date']}.json",
             mime="application/json",
+            width='stretch',
+        )
+    with col_dl3:
+        st.download_button(
+            "Download Health Card (PDF)",
+            data=build_pdf_report(customer, scorecard, report),
+            file_name=f"health_card_{customer['customer_id']}_{scorecard['scorecard_date']}.pdf",
+            mime="application/pdf",
             width='stretch',
         )
