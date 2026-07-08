@@ -1,0 +1,21 @@
+# Controls what `gcloud builds submit` uploads as the build context.
+#
+# Without this file, gcloud auto-generates one FROM .gitignore -- and
+# .gitignore excludes *.db (to stop local SQLite test files from being
+# committed). That silently excluded the pre-built msme_fhc.db from the
+# Cloud Build upload too, so the deployed image got an empty auto-created
+# SQLite file instead of the real one: "no such table: customers" at
+# runtime, not a missing-file error, since sqlite3 happily creates an empty
+# db on first connection. This file deliberately does NOT exclude *.db.
+
+.venv
+.git
+__pycache__
+*.pyc
+.env
+.env.example
+demo-deployment.env
+tests
+.claude
+context
+cloud-run-url.txt
