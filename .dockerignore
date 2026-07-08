@@ -1,0 +1,11 @@
+.venv
+.git
+__pycache__
+*.pyc
+.env
+.env.example
+demo-deployment.env
+tests
+.claude
+context
+uv.lock.bak

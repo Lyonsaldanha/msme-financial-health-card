@@ -342,3 +342,26 @@ noted here for traceability:
 - [x] Green/red flags display prominently, "None recorded" shown correctly when empty
 - [x] Logout clears session and redirects to Login, verified from both Dashboard and Reports pages
 - [x] Reports page: composite-score comparison chart + full history browse, verified live
+
+## Known issues (not yet fixed)
+
+A full code read-through surfaced a handful of real bugs, currently latent
+against this project's own data/environment but worth tracking. Full detail
+in [context/etl_analytics_implementation_report.md](context/etl_analytics_implementation_report.md)
+§12 — summary:
+
+- `ai/facts.py` can raise `KeyError` for a hypothetical future customer
+  missing AA or EPFO data (the NTC-style "no data" handling that GST/UPI
+  already have isn't mirrored there).
+- `etl_engine.py::validate_data()` doesn't catch malformed-JSON the same way
+  its own `load_json_to_db()` does.
+- A cross-validation helper in `analytics_engine.py` treats a legitimate
+  zero value the same as missing data.
+- `deploy-demo.sh`'s Cloud SQL tier-fallback only triggers if `timeout` is
+  installed; its `docker push --quiet` flag isn't confirmed to exist on
+  every Docker CLI version; and its Gemini rate limiter doesn't coordinate
+  across multiple Cloud Run instances.
+
+None of this affects the current 6-customer dataset or anything already
+verified above. None of it is a new exposure beyond what's already visible
+in the source — it's tracked here for follow-up, not fixed yet.

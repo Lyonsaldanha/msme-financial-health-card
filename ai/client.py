@@ -12,6 +12,8 @@ from __future__ import annotations
 
 import logging
 import os
+import threading
+import time
 
 from google import genai
 from google.genai import errors as genai_errors
@@ -29,6 +31,28 @@ TEMPERATURE = 0.3  # low temperature = factual mode, per spec
 # sized generously so structured JSON generation doesn't get truncated by that.
 MAX_OUTPUT_TOKENS = 4096
 MAX_ATTEMPTS = 2
+
+# Minimum spacing between outbound Gemini calls, enforced process-wide. The
+# free-tier quota is tied to the API key, not to any one caller -- a Dashboard
+# user clicking Generate repeatedly, or run_analytics looping over all 6
+# customers, would otherwise fire requests back-to-back with no gap between
+# them, which is exactly what trips a per-minute rate limit. Throttling here,
+# at the single chokepoint every caller goes through, protects all of them
+# uniformly rather than each call site needing its own pacing logic.
+MIN_SECONDS_BETWEEN_CALLS = float(os.getenv("GEMINI_MIN_SECONDS_BETWEEN_CALLS", "4"))
+
+_rate_limit_lock = threading.Lock()
+_last_call_at = 0.0
+
+
+def _throttle() -> None:
+    global _last_call_at
+    with _rate_limit_lock:
+        wait = MIN_SECONDS_BETWEEN_CALLS - (time.monotonic() - _last_call_at)
+        if wait > 0:
+            logger.info("Rate limiting Gemini call: waiting %.1fs", wait)
+            time.sleep(wait)
+        _last_call_at = time.monotonic()
 
 
 def _get_client() -> genai.Client | None:
@@ -76,6 +100,7 @@ def call_gemini(system_prompt: str, user_prompt: str) -> NarrativeReport | None:
 
     last_error: Exception | None = None
     for attempt in range(1, MAX_ATTEMPTS + 1):
+        _throttle()
         try:
             response = client.models.generate_content(model=model, contents=user_prompt, config=config)
         except genai_errors.APIError as exc:

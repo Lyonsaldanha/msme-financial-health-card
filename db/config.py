@@ -6,6 +6,7 @@ import os
 from dataclasses import dataclass
 
 from dotenv import load_dotenv
+from sqlalchemy.engine import URL
 
 load_dotenv()
 
@@ -21,10 +22,27 @@ class DBConfig:
     max_overflow: int
 
     @property
-    def url(self) -> str:
-        return (
-            f"postgresql+psycopg2://{self.user}:{self.password}"
-            f"@{self.host}:{self.port}/{self.database}"
+    def url(self) -> URL:
+        # Cloud Run -> Cloud SQL connects over a Unix socket mounted at
+        # /cloudsql/<connection-name>, not a host:port TCP address -- psycopg2
+        # expects that as a `host` query param with no port, not a network
+        # location. Built via URL.create (not an f-string) so the password is
+        # always correctly escaped regardless of what characters it contains.
+        if self.host.startswith("/"):
+            return URL.create(
+                "postgresql+psycopg2",
+                username=self.user,
+                password=self.password,
+                database=self.database,
+                query={"host": self.host},
+            )
+        return URL.create(
+            "postgresql+psycopg2",
+            username=self.user,
+            password=self.password,
+            host=self.host,
+            port=self.port,
+            database=self.database,
         )
 
 

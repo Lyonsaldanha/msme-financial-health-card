@@ -9,3 +9,6 @@ wheels/
 # Virtual environments
 .venv
 .env
+
+# Deployment secrets (contains a live DB password -- never commit)
+demo-deployment.env

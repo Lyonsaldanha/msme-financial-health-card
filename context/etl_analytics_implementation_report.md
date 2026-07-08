@@ -554,3 +554,87 @@ their original date, current-day scorecards reflect the corrected data.
   is empty) — verification throughout has been live, manual runs against
   Docker Postgres and a real browser session, documented in §7–9 of this
   report.
+
+---
+
+## 12. Known bugs (identified, not yet fixed)
+
+Found via a full read-through of every module, not surfaced by the live
+verification runs in §9 because none of the 6 current customers actually
+trigger them. Recorded here so they're tracked rather than forgotten;
+deliberately left unfixed for now per explicit instruction.
+
+**Real logic bugs:**
+
+1. **`ai/facts.py::retrieve_facts()` — latent `KeyError` crash.** It does
+   direct dict indexing (`aa["avg_monthly_credits"]`,
+   `epfo["employee_growth_percent"]`, etc.), assuming
+   `compute_aa_ratios()`/`compute_epfo_ratios()` always return a
+   fully-populated dict. Both instead return a bare `{}` when a customer has
+   zero `bank_statements`/`epfo_payroll` rows — unlike `compute_gst_ratios()`/
+   `compute_upi_ratios()`, which always return a full dict with `None`/0
+   defaults even when empty (the pattern already established for the NTC
+   case). Every current customer has full AA/EPFO data, so this never fires
+   today, but it's a real crash waiting for any future customer missing one
+   of those two sources, and it's inconsistent with how the other two
+   sources already handle exactly that case.
+2. **`etl_engine.py::validate_data()` — inconsistent error handling versus
+   its own `load_json_to_db()`.** The real loader catches
+   `(OSError, json.JSONDecodeError)` around reading/parsing a source file and
+   logs a graceful lineage failure. The dry-run validator (meant to be the
+   *safe* preview of that same path) doesn't wrap its `json.loads()` call the
+   same way — a malformed JSON file crashes the dry run with an uncaught
+   exception instead of reporting it like the real load does.
+3. **`analytics_engine.py`'s `ratio_and_flag()` helper conflates "zero" with
+   "missing".** `if not numerator or not denominator: return None, None`
+   treats a legitimately-zero value the same as `None`. Current DB
+   constraints make this unreachable for GST/UPI/AA-credits (all required
+   `> 0`), but `payroll_paid_paise` only requires `>= 0` — a future
+   zero-payroll month would silently report the cross-validation as `"NA"`
+   instead of surfacing what should be an informative mismatch (real EPFO
+   payroll vs. zero AA payroll).
+
+**Real bugs in `deploy-demo.sh` / `Dockerfile`** (never executed yet — see
+§6's design notes for the rationale behind the script's choices; these are
+bugs within that implementation, not disagreements with the design):
+
+4. **Cloud SQL tier-fallback only works if `timeout` happens to be
+   installed.** The retry-with-`db-custom-1-3840` logic (for when
+   `db-f1-micro` isn't a valid tier for the Postgres version/region) lives
+   entirely inside the `if command -v timeout` branch. On a system without
+   GNU `timeout`, an invalid-tier failure hits the bare `else` with no retry
+   and no friendly message — under `set -euo pipefail` it just exits on a raw
+   `gcloud` error instead of the intended graceful fallback.
+5. **`docker push --quiet` (line ~183) — flag support unconfirmed.** Not
+   verified against the actual installed Docker CLI version; `--quiet` is a
+   much newer addition to `docker push` than to `docker build`. If the local
+   Docker version predates it, this line fails outright before ever reaching
+   Cloud Run.
+6. **`ai/client.py`'s rate limiter is per-process, not distributed.**
+   `_last_call_at` is a module-level global. With `--max-instances=2` on
+   Cloud Run, two concurrently-running instances each enforce the 4-second
+   gap independently without coordinating — the real combined outbound rate
+   to Gemini could approach double the intended throttle. Not reachable in
+   local single-process dev; only matters once actually deployed with more
+   than one live instance.
+
+**Minor / informational** (not bugs, no behavior change needed):
+
+- `db/connection.py::session_scope()` appears unused — nothing in the
+  codebase uses ORM sessions; everything goes through
+  `get_engine().connect()`/`.begin()` with Core `text()` queries.
+- `ai/facts.py`'s `months` field defaults to a hardcoded `12` for NTC
+  customers rather than deriving it from that customer's actual UPI/AA/EPFO
+  row count — coincidentally correct since every customer here spans exactly
+  12 months, but not actually sourced from the right place for an NTC
+  customer specifically.
+- The Login page's "Demo Credentials" expander displays the hardcoded
+  credentials directly in the UI, by design (matches the original spec) —
+  worth remembering this makes a deployed instance's login effectively
+  decorative the moment it's public. This is exactly why `deploy-demo.sh`'s
+  own output emphasizes tearing down promptly; it isn't a new exposure, just
+  a reason the existing "tear down promptly" guidance matters.
+- `Dockerfile` has no `EXPOSE` directive and runs as root — neither affects
+  Cloud Run functionality (Cloud Run doesn't consult `EXPOSE`, and doesn't
+  require a non-root user), just minor deviations from general Docker best
+  practice.
