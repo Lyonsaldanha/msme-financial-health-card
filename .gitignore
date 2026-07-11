@@ -18,6 +18,11 @@ demo-deployment.env
 
 # Deployment output
 cloud-run-url.txt
+apprunner-url.txt
+ec2-url.txt
+
+# EC2 SSH private key (deploy-aws-ec2.sh generates this -- never commit)
+*.pem
 
 # macOS
 .DS_Store
